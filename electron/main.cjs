@@ -341,6 +341,17 @@ app.whenReady().then(()=>{
   ipcMain.handle('storage:get-info',()=>getStorageInfo());
   ipcMain.handle('storage:choose-location',()=>chooseStorageLocation());
   ipcMain.handle('storage:open-folder',()=>shell.openPath(storageRoot));
+  ipcMain.handle('print:landscape',async(event)=>new Promise((resolve)=>{
+    event.sender.print({silent:false,printBackground:true,landscape:true,pageSize:'A4'},(success,failureReason)=>resolve({success,failureReason:failureReason||''}));
+  }));
+  ipcMain.handle('print:landscape-pdf',async(event,suggestedName='DeedArchive-report.pdf')=>{
+    const pdf=await event.sender.printToPDF({printBackground:true,landscape:true,pageSize:'A4',preferCSSPageSize:false});
+    const safeName=String(suggestedName||'DeedArchive-report.pdf').replace(/[\\/:*?"<>|]/g,'-');
+    const result=await dialog.showSaveDialog(mainWindow,{title:'حفظ التقرير PDF',defaultPath:path.join(app.getPath('documents'),safeName.endsWith('.pdf')?safeName:`${safeName}.pdf`),filters:[{name:'PDF',extensions:['pdf']}]});
+    if(result.canceled||!result.filePath)return{canceled:true};
+    fs.writeFileSync(result.filePath,pdf);
+    return{canceled:false,path:result.filePath};
+  });
   ipcMain.handle('app:backup',async()=>{const target=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']});if(target.canceled||!target.filePaths[0])return{canceled:true};const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19),folder=path.join(target.filePaths[0],`DeedArchive-Backup-${stamp}`);fs.mkdirSync(folder,{recursive:true});db.exec('PRAGMA wal_checkpoint(FULL);');fs.copyFileSync(dbPath,path.join(folder,'deeds.sqlite'));fs.cpSync(attachmentsDir,path.join(folder,'attachments'),{recursive:true});fs.writeFileSync(path.join(folder,'README.txt'),'نسخة احتياطية من برنامج إدارة الصكوك والعقارات.\r\nتحتوي على قاعدة البيانات ومجلد المرفقات.');return{canceled:false,path:folder}});
   ipcMain.handle('import:choose',()=>chooseImportFile()); ipcMain.handle('import:load-range',(_,p)=>loadImportRange(p)); ipcMain.handle('import:commit',(_,p)=>commitImport(p));
   ipcMain.handle('updates:get-settings',()=>({...getUpdateSettings(),currentVersion:app.getVersion()})); ipcMain.handle('updates:save-settings',(_,s)=>saveUpdateSettings(s)); ipcMain.handle('updates:check',(_,s)=>checkUpdate(s||getUpdateSettings()));

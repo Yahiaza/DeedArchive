@@ -4,66 +4,42 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Release tag, e.g. v0.2.6'
-        required: true
-        type: string
 
 permissions:
   contents: write
 
 jobs:
-  build-release:
+  build-windows:
     runs-on: windows-latest
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: package-lock.json
-        continue-on-error: true
+          cache-dependency-path: package.json
 
       - name: Install dependencies
         shell: powershell
-        run: |
-          if (Test-Path package-lock.json) {
-            npm ci
-          } else {
-            npm install
-          }
+        run: npm install --no-audit --no-fund
 
-      - name: Build portable Windows app
+      - name: Build Portable EXE
+        shell: powershell
         run: npm run dist:win
 
-      - name: Show generated files
+      - name: Show release files
         shell: powershell
-        run: Get-ChildItem -Path release -Recurse | Select-Object FullName, Length
-
-      - name: Resolve release tag
-        id: release_tag
-        shell: powershell
-        run: |
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            "tag=${{ inputs.tag }}" >> $env:GITHUB_OUTPUT
-          } else {
-            "tag=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
-          }
+        run: Get-ChildItem -Path .\release -Recurse | Format-Table FullName,Length
 
       - name: Create GitHub Release and upload Portable EXE
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release_tag.outputs.tag }}
-          name: DeedArchive ${{ steps.release_tag.outputs.tag }}
+          name: DeedArchive ${{ github.ref_name }}
           generate_release_notes: true
+          make_latest: true
           files: |
             release/*.exe
-          fail_on_unmatched_files: true

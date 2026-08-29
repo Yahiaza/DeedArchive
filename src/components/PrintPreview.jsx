@@ -1,5 +1,5 @@
 import React from 'react';
-import { Archive, FileText, Paperclip, Printer } from 'lucide-react';
+import { Archive, FileText, Paperclip, Printer, X } from 'lucide-react';
 import Modal from './Modal';
 
 const fields=[
@@ -13,6 +13,7 @@ export default function PrintPreview({deed,onClose}){
  const attachments=deed?.attachments||[];
  return <Modal open={!!deed} title="معاينة تقرير الصك" onClose={onClose} width={940}>
   <div className="print-preview-modal">
+   <div className="print-floating-actions no-print"><button className="floating-print-btn" onClick={doPrint}><Printer size={18}/>طباعة / حفظ PDF</button><button className="floating-close-btn" onClick={onClose} title="إغلاق (Esc)"><X size={18}/></button></div>
    <article className="deed-report-sheet" dir="rtl">
     <header className="report-header">
      <div className="report-brand"><span className="report-brand-icon"><Archive size={24}/></span><div><strong>إدارة الصكوك والعقارات</strong><small>نظام الأرشفة المحلية</small></div></div>
@@ -38,7 +39,6 @@ export default function PrintPreview({deed,onClose}){
     </section>
     <footer className="report-footer"><div><span>تاريخ الطباعة</span><b>{latinArabic(new Date(),true)}</b></div><p>تم إنشاء هذا التقرير بواسطة نظام إدارة الصكوك والعقارات</p><div><span>عدد المرفقات</span><b>{attachments.length}</b></div></footer>
    </article>
-   <div className="modal-actions no-print"><button className="btn primary" onClick={doPrint}><Printer size={17}/>طباعة / حفظ PDF</button><button className="btn secondary" onClick={onClose}>إغلاق</button></div>
   </div>
  </Modal>
 }

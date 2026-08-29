@@ -1,21 +1,21 @@
-# GitHub automatic releases
+# النشر التلقائي عبر GitHub Actions
 
-The repository uses `.github/workflows/release.yml`.
+المشروع يحتوي على `.github/workflows/release.yml`.
 
-When a tag such as `v0.2.7` is pushed, GitHub Actions builds the Windows Portable executable and creates a GitHub Release automatically.
+عند رفع Tag يبدأ بحرف `v` مثل `v0.2.7`، يقوم GitHub تلقائيًا على Windows بـ:
 
-## Normal future publishing
+1. تنزيل الكود.
+2. تثبيت الحزم.
+3. تشغيل `npm run dist:win`.
+4. إنشاء GitHub Release.
+5. رفع ملف `release/*.exe` إلى الـ Release.
 
-Automatic patch bump:
+لا يحتاج جهازك إلى GitHub CLI أو صلاحيات Administrator.
 
-```powershell
-npm run github:publish
-```
-
-Or choose the version yourself:
+## رفع إصدار محدد
 
 ```powershell
 npm run github:publish -- 0.2.7
 ```
 
-No local GitHub CLI (`gh`) is required.
+هذا الأمر يقوم بعمل commit ثم push لـ main ثم إنشاء ورفع Tag `v0.2.7`. بعد ذلك يبدأ GitHub Actions تلقائيًا.
