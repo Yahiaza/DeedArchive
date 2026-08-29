@@ -1,0 +1,52 @@
+{
+  "name": "deed-property-archive",
+  "version": "0.2.3",
+  "description": "Arabic RTL desktop archive for deeds and properties",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "electron": "electron .",
+    "dist:win": "npm run build && electron-builder --win portable",
+    "dist:dir": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^37.2.0",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.5",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.local.deedarchive",
+    "productName": "إدارة الصكوك والعقارات",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "build/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "DeedArchive-${version}-portable.${ext}",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    }
+  }
+}

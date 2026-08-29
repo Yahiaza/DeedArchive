@@ -1,0 +1,60 @@
+import React,{useCallback,useEffect,useState} from 'react';
+import { Archive, Plus, Pencil, Printer, DatabaseBackup, Search, Building2, Trash2, FileSpreadsheet, RefreshCw, Eye } from 'lucide-react';
+import { api } from './lib/api';
+import Filters from './components/Filters';
+import PreviewPanel from './components/PreviewPanel';
+import DeedsTable from './components/DeedsTable';
+import DeedForm from './components/DeedForm';
+import Modal from './components/Modal';
+import AttachmentViewer from './components/AttachmentViewer';
+import PrintPreview from './components/PrintPreview';
+import SmartImport from './components/SmartImport';
+import UpdateSettings from './components/UpdateSettings';
+
+const initialFilters={search:'',city:'',district:'',propertyType:'',heldBy:'',owner:'',page:1,pageSize:12};
+export default function App(){
+ const [filters,setFilters]=useState(initialFilters),[result,setResult]=useState({items:[],total:0,page:1,pageSize:12,pages:1}),[options,setOptions]=useState({cities:[],districts:[],propertyTypes:[],heldBy:[],owners:[]});
+ const [selected,setSelected]=useState(null),[formOpen,setFormOpen]=useState(false),[editing,setEditing]=useState(null),[deleteOpen,setDeleteOpen]=useState(false),[toast,setToast]=useState(''),[loading,setLoading]=useState(true);
+ const [viewer,setViewer]=useState(null),[printPreview,setPrintPreview]=useState(false),[importOpen,setImportOpen]=useState(false),[updatesOpen,setUpdatesOpen]=useState(false),[updateStatus,setUpdateStatus]=useState(null);
+ const load=useCallback(async()=>{setLoading(true);try{const data=await api.listDeeds(filters);setResult(data);if(selected&&!data.items.some(x=>x.id===selected.id))setSelected(null)}finally{setLoading(false)}},[filters,selected?.id]);
+ const loadOptions=useCallback(async()=>setOptions(await api.getFilters()),[]);
+ useEffect(()=>{load()},[filters]);useEffect(()=>{loadOptions()},[]);useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),3200);return()=>clearTimeout(t)},[toast]);
+ useEffect(()=>api.onUpdateStatus?.(s=>{setUpdateStatus(s);if(s?.hasUpdate)setToast(`يتوفر تحديث جديد V${s.latestVersion}`)}),[]);
+ useEffect(()=>{let live=true;(async()=>{try{const cfg=await api.getUpdateSettings();if(cfg?.autoCheck&&cfg.owner&&cfg.repo){const s=await api.checkUpdates(cfg);if(live){setUpdateStatus(s);if(s?.hasUpdate)setToast(`يتوفر تحديث جديد V${s.latestVersion}`)}}}catch{}})();return()=>{live=false}},[]);
+ async function selectDeed(id){setSelected(await api.getDeed(id))} function changeFilter(k,v){setFilters(f=>({...f,[k]:v,page:1}))}
+ async function saveDeed(form){const saved=await api.saveDeed(form);setSelected(saved);await loadOptions();await load();setToast('تم حفظ بيانات الصك بنجاح')}
+ async function addAttachments(){if(!selected)return;const d=await api.chooseAttachments(selected.id);if(d){setSelected(d);await load();setToast('تمت إضافة المرفقات')}}
+ async function deleteAttachment(id){if(!selected)return;await api.deleteAttachment(id);setSelected(await api.getDeed(selected.id));await load();setToast('تم حذف المرفق')}
+ async function deleteDeed(){if(!selected)return;await api.deleteDeed(selected.id);setSelected(null);setDeleteOpen(false);await loadOptions();await load();setToast('تم حذف الصك')}
+ async function backup(){const r=await api.backup();if(!r?.canceled)setToast('تم إنشاء النسخة الاحتياطية بنجاح')}
+ function printTable(){window.print()}
+ function printOwner(){if(!selected?.owner_name){setToast('اختر صكًا أولاً لتحديد المالك');return}const old={...filters};setFilters(f=>({...f,owner:selected.owner_name,page:1}));setTimeout(()=>window.print(),550);setTimeout(()=>setFilters(old),1050)}
+ async function importDone(r){await loadOptions();setFilters(f=>({...f,page:1}));await load();setToast(`تم استيراد ${r.inserted} صك وتخطي ${r.skipped}`)}
+ return <div className="app-shell">
+  <header className="topbar">
+   <div className="brand"><div className="brand-mark"><Archive size={22}/></div><div><h1>إدارة الصكوك والعقارات</h1><p>أرشيف محلي آمن ومنظم</p></div></div>
+   <div className="global-search"><Search size={18}/><input value={filters.search} onChange={e=>changeFilter('search',e.target.value)} placeholder="ابحث برقم الوثيقة، اسم المالك، المدينة أو الحي..."/></div>
+   <div className="toolbar">
+    <button className="btn primary" onClick={()=>{setEditing(null);setFormOpen(true)}}><Plus size={18}/>إضافة صك</button>
+    <button className="btn secondary" disabled={!selected} onClick={()=>{setEditing(selected);setFormOpen(true)}}><Pencil size={17}/>تعديل</button>
+    <button className="btn secondary" disabled={!selected} onClick={()=>setPrintPreview(true)}><Eye size={17}/>معاينة الطباعة</button>
+    <button className="btn secondary" onClick={printTable}><Printer size={17}/>طباعة الجدول</button>
+    <button className="btn secondary owner-print" onClick={printOwner}><Building2 size={17}/>حسب المالك</button>
+    <button className="btn secondary" onClick={()=>setImportOpen(true)}><FileSpreadsheet size={17}/>استيراد ذكي</button>
+    <button className={`btn secondary update-btn ${updateStatus?.hasUpdate?'has-update':''}`} onClick={()=>setUpdatesOpen(true)}><RefreshCw size={17}/>تحديث{updateStatus?.hasUpdate&&<i/>}</button>
+    <button className="btn secondary backup-btn" onClick={backup}><DatabaseBackup size={17}/>نسخة احتياطية</button>
+   </div>
+  </header>
+  <main className="workspace">
+   <PreviewPanel deed={selected} onAddAttachment={addAttachments} onOpenAttachment={api.openAttachment} onPreviewAttachment={setViewer} onDeleteAttachment={deleteAttachment}/>
+   <DeedsTable result={result} selectedId={selected?.id} onSelect={selectDeed} onPage={p=>setFilters(f=>({...f,page:p}))} pageSize={filters.pageSize} onPageSize={n=>setFilters(f=>({...f,pageSize:n,page:1}))}/>
+   <Filters filters={filters} options={options} onChange={changeFilter} onReset={()=>setFilters(initialFilters)}/>
+  </main>
+  <footer className="statusbar"><div><span className="status-dot"/> قاعدة البيانات المحلية جاهزة</div><div>{loading?'جارٍ تحديث البيانات...':`${result.total} صك في النتائج الحالية`}</div><div>SQLite • تخزين محلي • V0.2.0</div></footer>
+  <DeedForm open={formOpen} deed={editing} onClose={()=>setFormOpen(false)} onSave={saveDeed}/>
+  <AttachmentViewer attachment={viewer} onClose={()=>setViewer(null)}/><PrintPreview deed={printPreview?selected:null} onClose={()=>setPrintPreview(false)}/>
+  <SmartImport open={importOpen} onClose={()=>setImportOpen(false)} onDone={importDone} onToast={setToast}/><UpdateSettings open={updatesOpen} onClose={()=>setUpdatesOpen(false)} onToast={setToast} initialStatus={updateStatus}/>
+  <Modal open={deleteOpen} title="حذف الصك" onClose={()=>setDeleteOpen(false)} width={460}><div className="confirm-body"><div className="danger-icon"><Trash2/></div><h3>هل تريد حذف هذا الصك؟</h3><p>سيتم حذف بيانات الصك وكل المرفقات المرتبطة به نهائيًا.</p><div className="modal-actions"><button className="btn secondary" onClick={()=>setDeleteOpen(false)}>إلغاء</button><button className="btn danger" onClick={deleteDeed}><Trash2 size={17}/>حذف نهائي</button></div></div></Modal>
+  {selected&&<button className="floating-delete" title="حذف الصك المحدد" onClick={()=>setDeleteOpen(true)}><Trash2 size={17}/></button>}{toast&&<div className="toast">{toast}</div>}
+ </div>
+}
