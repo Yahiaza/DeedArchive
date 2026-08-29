@@ -10,7 +10,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "electron": "electron .",
     "dist:win": "npm run build && electron-builder --win portable",
-    "dist:dir": "npm run build && electron-builder --dir"
+    "dist:dir": "npm run build && electron-builder --dir",
+    "github:publish": "node scripts/publish-github.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
