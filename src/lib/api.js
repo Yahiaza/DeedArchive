@@ -1,6 +1,6 @@
 const fallback={
  listDeeds:async()=>({items:[],total:0,page:1,pageSize:12,pages:1}),getDeed:async()=>null,saveDeed:async x=>({...x,id:x.id||Date.now(),attachments:[]}),deleteDeed:async()=>true,
- chooseAttachments:async()=>null,openAttachment:async()=>'',getAttachmentPreview:async()=>'',getAttachmentData:async()=>'',deleteAttachment:async()=>true,backup:async()=>({canceled:true}),getFilters:async()=>({cities:[],districts:[],propertyTypes:[],heldBy:[],owners:[]}),
- chooseImport:async()=>({canceled:true}),loadImportRange:async()=>null,commitImport:async()=>({inserted:0,skipped:0,errors:[]}),getUpdateSettings:async()=>({owner:'',repo:'',autoCheck:true,currentVersion:'0.2.0'}),saveUpdateSettings:async s=>s,checkUpdates:async()=>({configured:false,currentVersion:'0.2.0'}),downloadUpdate:async()=>({}),onUpdateStatus:()=>()=>{}
+ chooseAttachments:async()=>null,openAttachment:async()=>'',getAttachmentPreview:async()=>'',getAttachmentData:async()=>'',deleteAttachment:async()=>true,backup:async()=>({canceled:true}),getFilters:async()=>({cities:[],districts:[],propertyTypes:[],heldBy:[],owners:[]}),getStorageInfo:async()=>({storageRoot:'',dbPath:'',attachmentsDir:'',isDefault:true}),chooseStorageLocation:async()=>({canceled:true}),openStorageFolder:async()=>'',
+ chooseImport:async()=>({canceled:true}),loadImportRange:async()=>null,commitImport:async()=>({inserted:0,skipped:0,errors:[]}),getUpdateSettings:async()=>({owner:'',repo:'',autoCheck:true,currentVersion:'0.2.6'}),saveUpdateSettings:async s=>s,checkUpdates:async()=>({configured:false,currentVersion:'0.2.6'}),downloadUpdate:async()=>({}),onUpdateStatus:()=>()=>{}
 };
 export const api=window.deedAPI||fallback;

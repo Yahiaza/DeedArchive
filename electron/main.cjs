@@ -11,12 +11,41 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 else app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } });
 
-function ensureStorage() {
-  storageRoot = path.join(app.getPath('userData'), 'archive-data');
-  attachmentsDir = path.join(storageRoot, 'attachments');
-  fs.mkdirSync(attachmentsDir, { recursive: true });
-  dbPath = path.join(storageRoot, 'deeds.sqlite');
-  db = new DatabaseSync(dbPath);
+function defaultStorageRoot(){ return path.join(app.getPath('userData'), 'archive-data'); }
+function storageLocatorPath(){ return path.join(app.getPath('userData'), 'storage-location.json'); }
+function readConfiguredStorageRoot(){
+  try {
+    const cfg=JSON.parse(fs.readFileSync(storageLocatorPath(),'utf8'));
+    if(cfg?.storageRoot && path.isAbsolute(cfg.storageRoot)) return cfg.storageRoot;
+  } catch {}
+  return defaultStorageRoot();
+}
+function writeConfiguredStorageRoot(root){
+  fs.mkdirSync(app.getPath('userData'),{recursive:true});
+  fs.writeFileSync(storageLocatorPath(),JSON.stringify({storageRoot:root},null,2),'utf8');
+}
+function closeDatabase(){
+  if(!db) return;
+  try{db.exec('PRAGMA wal_checkpoint(FULL);')}catch{}
+  try{db.close()}catch{}
+  db=null;
+}
+function repairAttachmentPaths(){
+  try{
+    const atts=db.prepare('SELECT id, stored_path FROM attachments').all();
+    const update=db.prepare('UPDATE attachments SET stored_path=$path WHERE id=$id');
+    for(const a of atts){
+      const candidate=path.join(attachmentsDir,path.basename(a.stored_path||''));
+      if(candidate!==a.stored_path && fs.existsSync(candidate)) update.run({$path:candidate,$id:a.id});
+    }
+  }catch{}
+}
+function openStorage(root){
+  storageRoot=root;
+  attachmentsDir=path.join(storageRoot,'attachments');
+  fs.mkdirSync(attachmentsDir,{recursive:true});
+  dbPath=path.join(storageRoot,'deeds.sqlite');
+  db=new DatabaseSync(dbPath);
   db.exec(`
     PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS deeds (
@@ -49,6 +78,40 @@ function ensureStorage() {
     CREATE INDEX IF NOT EXISTS idx_deeds_city ON deeds(city);
     CREATE INDEX IF NOT EXISTS idx_deeds_held ON deeds(held_by);
   `);
+  repairAttachmentPaths();
+}
+function ensureStorage(){ openStorage(readConfiguredStorageRoot()); }
+function getStorageInfo(){
+  const same=(a,b)=>path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase();
+  return {storageRoot,dbPath,attachmentsDir,isDefault:same(storageRoot,defaultStorageRoot())};
+}
+async function chooseStorageLocation(){
+  const pick=await dialog.showOpenDialog(mainWindow,{title:'اختر مكان حفظ بيانات الصكوك',properties:['openDirectory','createDirectory']});
+  if(pick.canceled||!pick.filePaths[0]) return {canceled:true,...getStorageInfo()};
+  const chosen=pick.filePaths[0];
+  const target=path.basename(chosen).toLowerCase()==='deedarchivedata'?chosen:path.join(chosen,'DeedArchiveData');
+  const same=(a,b)=>path.resolve(a).toLowerCase()===path.resolve(b).toLowerCase();
+  if(same(target,storageRoot)) return {canceled:false,unchanged:true,...getStorageInfo()};
+  const oldRoot=storageRoot, oldDb=dbPath, oldAttachments=attachmentsDir;
+  let mode='copy';
+  if(fs.existsSync(path.join(target,'deeds.sqlite'))){
+    const answer=await dialog.showMessageBox(mainWindow,{type:'question',title:'مجلد بيانات موجود',message:'المجلد المختار يحتوي بالفعل على قاعدة بيانات للصكوك.',detail:'هل تريد استخدام البيانات الموجودة في هذا المجلد أم استبدالها بنسخة من بيانات البرنامج الحالية؟',buttons:['استخدام البيانات الموجودة','استبدالها بالبيانات الحالية','إلغاء'],defaultId:0,cancelId:2,noLink:true});
+    if(answer.response===2) return {canceled:true,...getStorageInfo()};
+    mode=answer.response===0?'existing':'copy';
+  }
+  if(mode==='copy'){
+    try{db.exec('PRAGMA wal_checkpoint(FULL);')}catch{}
+    fs.mkdirSync(target,{recursive:true});
+    fs.mkdirSync(path.join(target,'attachments'),{recursive:true});
+    if(fs.existsSync(oldDb)) fs.copyFileSync(oldDb,path.join(target,'deeds.sqlite'));
+    if(fs.existsSync(oldAttachments)) fs.cpSync(oldAttachments,path.join(target,'attachments'),{recursive:true,force:true});
+    const oldUpdate=path.join(oldRoot,'update-settings.json');
+    if(fs.existsSync(oldUpdate)) fs.copyFileSync(oldUpdate,path.join(target,'update-settings.json'));
+  }
+  closeDatabase();
+  openStorage(target);
+  writeConfiguredStorageRoot(target);
+  return {canceled:false,migrated:mode==='copy',usedExisting:mode==='existing',...getStorageInfo()};
 }
 const rows = (sql, params={}) => db.prepare(sql).all(params);
 const row = (sql, params={}) => db.prepare(sql).get(params);
@@ -57,16 +120,19 @@ function listDeeds(filters = {}) {
   const where = [], params = {};
   const search = String(filters.search || '').trim();
   if (search) {
-    where.push(`(document_number LIKE $search OR owner_name LIKE $search OR property_type LIKE $search OR plot_number LIKE $search OR plan_number LIKE $search OR district LIKE $search OR city LIKE $search OR held_by LIKE $search)`);
+    where.push(`(document_number LIKE $search OR document_date LIKE $search OR owner_name LIKE $search OR property_type LIKE $search OR property_area LIKE $search OR plot_number LIKE $search OR plan_number LIKE $search OR district LIKE $search OR city LIKE $search OR held_by LIKE $search)`);
     params.$search = `%${search}%`;
   }
   for (const [key,col] of [['city','city'],['district','district'],['propertyType','property_type'],['heldBy','held_by'],['owner','owner_name']]) {
     const value = String(filters[key] || '').trim();
     if (value) { where.push(`${col} = $${key}`); params[`$${key}`] = value; }
   }
+  const browseMap={document_number:'document_number',document_date:'document_date',owner_name:'owner_name',property_type:'property_type',property_area:'property_area',plot_number:'plot_number',plan_number:'plan_number',district:'district',city:'city',held_by:'held_by'};
+  const browseKey=String(filters.browseKey||'').trim(),browseValue=String(filters.browseValue||'').trim();
+  if(browseKey&&browseValue&&browseMap[browseKey]){where.push(`${browseMap[browseKey]} = $browseValue`);params.$browseValue=browseValue;}
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const total = row(`SELECT COUNT(*) AS n FROM deeds ${clause}`, params)?.n || 0;
-  const pageSize = Math.max(5, Math.min(100, Number(filters.pageSize || 12)));
+  const pageSize = Math.max(5, Math.min(5000, Number(filters.pageSize || 12)));
   const page = Math.max(1, Number(filters.page || 1));
   params.$limit = pageSize; params.$offset = (page - 1) * pageSize;
   const items = rows(`SELECT d.*, (SELECT COUNT(*) FROM attachments a WHERE a.deed_id=d.id) AS attachment_count FROM deeds d ${clause} ORDER BY d.id DESC LIMIT $limit OFFSET $offset`, params);
@@ -272,6 +338,9 @@ app.whenReady().then(()=>{
   ipcMain.handle('attachments:open',(_,id)=>{const a=row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});return a?shell.openPath(a.stored_path):''});
   ipcMain.handle('attachments:delete',(_,id)=>{const a=row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});if(a){try{if(fs.existsSync(a.stored_path))fs.unlinkSync(a.stored_path)}catch{}db.prepare('DELETE FROM attachments WHERE id=$id').run({$id:Number(id)})}return true});
   ipcMain.handle('deeds:filter-options',()=>filterOptions());
+  ipcMain.handle('storage:get-info',()=>getStorageInfo());
+  ipcMain.handle('storage:choose-location',()=>chooseStorageLocation());
+  ipcMain.handle('storage:open-folder',()=>shell.openPath(storageRoot));
   ipcMain.handle('app:backup',async()=>{const target=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']});if(target.canceled||!target.filePaths[0])return{canceled:true};const stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19),folder=path.join(target.filePaths[0],`DeedArchive-Backup-${stamp}`);fs.mkdirSync(folder,{recursive:true});db.exec('PRAGMA wal_checkpoint(FULL);');fs.copyFileSync(dbPath,path.join(folder,'deeds.sqlite'));fs.cpSync(attachmentsDir,path.join(folder,'attachments'),{recursive:true});fs.writeFileSync(path.join(folder,'README.txt'),'نسخة احتياطية من برنامج إدارة الصكوك والعقارات.\r\nتحتوي على قاعدة البيانات ومجلد المرفقات.');return{canceled:false,path:folder}});
   ipcMain.handle('import:choose',()=>chooseImportFile()); ipcMain.handle('import:load-range',(_,p)=>loadImportRange(p)); ipcMain.handle('import:commit',(_,p)=>commitImport(p));
   ipcMain.handle('updates:get-settings',()=>({...getUpdateSettings(),currentVersion:app.getVersion()})); ipcMain.handle('updates:save-settings',(_,s)=>saveUpdateSettings(s)); ipcMain.handle('updates:check',(_,s)=>checkUpdate(s||getUpdateSettings()));
