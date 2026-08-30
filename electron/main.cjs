@@ -107,6 +107,8 @@ async function chooseStorageLocation(){
     if(fs.existsSync(oldAttachments)) fs.cpSync(oldAttachments,path.join(target,'attachments'),{recursive:true,force:true});
     const oldUpdate=path.join(oldRoot,'update-settings.json');
     if(fs.existsSync(oldUpdate)) fs.copyFileSync(oldUpdate,path.join(target,'update-settings.json'));
+    const oldReport=path.join(oldRoot,'report-settings.json');
+    if(fs.existsSync(oldReport)) fs.copyFileSync(oldReport,path.join(target,'report-settings.json'));
   }
   closeDatabase();
   openStorage(target);
@@ -185,6 +187,18 @@ function attachmentData(a){
   return `data:${mime};base64,${fs.readFileSync(a.stored_path).toString('base64')}`;
 }
 function filterOptions(){const pick=col=>rows(`SELECT DISTINCT ${col} AS value FROM deeds WHERE TRIM(${col})<>'' ORDER BY ${col}`).map(x=>x.value);return{cities:pick('city'),districts:pick('district'),propertyTypes:pick('property_type'),heldBy:pick('held_by'),owners:pick('owner_name')}}
+
+
+function reportSettingsPath(){return path.join(storageRoot,'report-settings.json')}
+function getReportSettings(){
+  const defaults={deedsOwnerName:''};
+  try{return {...defaults,...JSON.parse(fs.readFileSync(reportSettingsPath(),'utf8'))}}catch{return defaults}
+}
+function saveReportSettings(s={}){
+  const v={deedsOwnerName:String(s.deedsOwnerName||'').trim()};
+  fs.writeFileSync(reportSettingsPath(),JSON.stringify(v,null,2),'utf8');
+  return v;
+}
 
 function updateSettingsPath(){return path.join(storageRoot,'update-settings.json')}
 function getUpdateSettings(){
@@ -341,6 +355,8 @@ app.whenReady().then(()=>{
   ipcMain.handle('storage:get-info',()=>getStorageInfo());
   ipcMain.handle('storage:choose-location',()=>chooseStorageLocation());
   ipcMain.handle('storage:open-folder',()=>shell.openPath(storageRoot));
+  ipcMain.handle('report-settings:get',()=>getReportSettings());
+  ipcMain.handle('report-settings:save',(_,s)=>saveReportSettings(s));
   ipcMain.handle('print:landscape',async(event)=>new Promise((resolve)=>{
     event.sender.print({silent:false,printBackground:true,landscape:true,pageSize:'A4'},(success,failureReason)=>resolve({success,failureReason:failureReason||''}));
   }));

@@ -8,7 +8,7 @@ const fields=[
 ];
 const latinArabic=(date,withTime=false)=>new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory',withTime?{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:true}:{year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 
-export default function PrintPreview({deed,onClose}){
+export default function PrintPreview({deed,reportOwner,onClose}){
  function doPrint(){document.body.classList.add('printing-deed');setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('printing-deed'),250)},60)}
  const attachments=deed?.attachments||[];
  return <Modal open={!!deed} title="معاينة تقرير الصك" onClose={onClose} width={940}>
@@ -17,7 +17,7 @@ export default function PrintPreview({deed,onClose}){
    <article className="deed-report-sheet" dir="rtl">
     <header className="report-header">
      <div className="report-brand"><span className="report-brand-icon"><Archive size={24}/></span><div><strong>إدارة الصكوك والعقارات</strong><small>نظام الأرشفة المحلية</small></div></div>
-     <div className="report-title"><h1>بيانات الصك</h1><p>تقرير تفصيلي لبيانات الوثيقة العقارية</p></div>
+     <div className="report-title"><h1>بيانات الصك</h1>{reportOwner&&<div className="report-owner-badge compact"><span>صاحب الصكوك</span><b>{reportOwner}</b></div>}<p>تقرير تفصيلي لبيانات الوثيقة العقارية</p></div>
      <div className="report-number"><span>رقم السجل</span><b>#{deed?.id||'—'}</b></div>
     </header>
     <section className="report-identity">

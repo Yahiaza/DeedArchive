@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const run = (cmd, args, allowFailure = false) => {
-  const result = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32' });
+  const result = spawnSync(cmd, args, { stdio: 'inherit', shell: false });
   if (result.status !== 0 && !allowFailure) process.exit(result.status ?? 1);
   return result.status === 0;
 };
@@ -31,11 +31,18 @@ pkg.version = version;
 fs.writeFileSync(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf8');
 
 run('git', ['add', '.']);
-const committed = run('git', ['commit', '-m', `DeedArchive ${tag}`], true);
-if (!committed) console.log('No source changes to commit; continuing with push/tag.');
+const diffCheck = spawnSync('git', ['diff', '--cached', '--quiet'], { stdio: 'ignore', shell: false });
+if (diffCheck.status === 1) {
+  run('git', ['commit', '-m', `DeedArchive ${tag}`]);
+} else if (diffCheck.status === 0) {
+  console.log('No source changes to commit; continuing with push/tag.');
+} else {
+  console.error('Could not check staged Git changes.');
+  process.exit(diffCheck.status ?? 1);
+}
 run('git', ['push', 'origin', 'main']);
 
-const tagExists = spawnSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}`], { stdio: 'ignore', shell: process.platform === 'win32' }).status === 0;
+const tagExists = spawnSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}`], { stdio: 'ignore', shell: false }).status === 0;
 if (tagExists) {
   console.error(`Tag ${tag} already exists locally. Use a new version.`);
   process.exit(1);

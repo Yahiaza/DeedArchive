@@ -1,6 +1,6 @@
 {
   "name": "deed-property-archive",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Arabic RTL desktop archive for deeds and properties",
   "main": "electron/main.cjs",
   "type": "module",

@@ -34,7 +34,7 @@ export default function TablePrintPreview({report,onClose}){
    <article className="table-report-sheet" dir="rtl">
     <header className="table-report-header">
      <div className="table-report-brand"><span><Archive size={23}/></span><div><b>إدارة الصكوك والعقارات</b><small>تقرير الأرشيف العقاري</small></div></div>
-     <div className="table-report-title"><h1>{report.title||'تقرير الصكوك والعقارات'}</h1><p>{report.subtitle||'جميع السجلات المطابقة لمعايير البحث الحالية'}</p></div>
+     <div className="table-report-title"><div className="table-title-line"><h1>{report.title||'تقرير الصكوك والعقارات'}</h1>{report.reportOwner&&<div className="report-owner-badge"><span>صاحب الصكوك</span><b>{report.reportOwner}</b></div>}</div><p>{report.subtitle||'جميع السجلات المطابقة لمعايير البحث الحالية'}</p></div>
      <div className="table-report-count"><span>إجمالي السجلات</span><b>{report.items.length}</b></div>
     </header>
     <div className="table-report-meta"><span>تاريخ الطباعة: <b>{nowText()}</b></span>{report.owner&&<span>المالك: <b>{report.owner}</b></span>}<span>عدد النتائج: <b>{report.items.length}</b></span></div>
