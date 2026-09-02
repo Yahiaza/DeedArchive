@@ -209,3 +209,36 @@ th{font-size:11.5px;font-weight:900;position:relative}td{font-size:12.5px;font-w
 
 /* attachment metadata, context action, and hover preview */
 .attachment-note-mark{z-index:3!important;top:4px!important;right:4px!important;left:auto!important;background:rgba(34,103,91,.92)!important;color:#fff!important;pointer-events:none}.attachment-thumb.has-attachment-notes{overflow:visible;z-index:5}.attachment-note-tooltip{position:absolute;z-index:20;right:0;left:auto;bottom:calc(100% + 7px);width:160px;max-height:64px;padding:7px 8px;border:1px solid rgba(92,111,105,.25);border-radius:8px;background:rgba(255,253,248,.97);box-shadow:0 9px 24px rgba(30,48,61,.22);color:#344854;opacity:0;visibility:hidden;transform:translateY(4px);transition:.15s;pointer-events:none;text-align:right;direction:rtl}.attachment-thumb.has-attachment-notes:hover .attachment-note-tooltip{opacity:1;visibility:visible;transform:translateY(0)}.attachment-note-tooltip b{display:block;font-size:8px;color:#287064;margin-bottom:2px}.attachment-note-tooltip p{margin:0;font-size:8px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}.attachment-context-menu{position:fixed;z-index:5100;width:190px;padding:6px;border:1px solid #cfc5b3;border-radius:12px;background:#fffdf8;box-shadow:0 18px 45px rgba(25,45,67,.22);direction:rtl}.attachment-context-menu button{width:100%;min-height:40px;border:0;border-radius:9px;background:transparent;padding:7px 10px;display:flex;align-items:center;gap:9px;color:#183b67;font-family:inherit;font-size:12px;font-weight:900;cursor:pointer}.attachment-context-menu button:hover{background:#eee8dc}.attachment-notes-form{padding:18px}.attachment-notes-file{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;border:1px solid #ded7ca;border-radius:10px;background:#f6f2e9;color:#44586a}.attachment-notes-file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:800}.attachment-notes-form label>span{display:block;margin-bottom:7px;color:#4b5b68;font-size:11px;font-weight:900}.attachment-notes-form textarea{width:100%;resize:vertical;min-height:120px;padding:12px 13px;border:1px solid #cfc8bb;border-radius:11px;background:#fffdf8;color:#263b4d;font:inherit;font-size:12px;line-height:1.8;outline:none;box-sizing:border-box}.attachment-notes-form textarea:focus{border-color:#6e9b91;box-shadow:0 0 0 3px rgba(67,126,113,.12)}
+
+/* PDF: keep the sheet white and present the table as the report card. */
+@media print{
+  html,
+  body.printing-table-report,
+  body.printing-table-report #root,
+  body.printing-table-report .app-shell,
+  body.printing-table-report .modal-backdrop,
+  body.printing-table-report .modal-card,
+  body.printing-table-report .table-report-preview{
+    background:#fff!important;
+    background-image:none!important;
+  }
+  body.printing-table-report .table-report-sheet{
+    background:transparent!important;
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+  }
+  body.printing-table-report .print-table-frame{
+    width:calc(100% - 8mm)!important;
+    max-width:calc(100% - 8mm)!important;
+    margin:4mm 4mm 3mm!important;
+    border:1px solid #cfd5d2!important;
+    border-radius:4mm!important;
+    background:#fff!important;
+    box-shadow:0 1mm 3mm rgba(31,46,61,.07)!important;
+  }
+  body.printing-table-report .print-data-table th{
+    background:#f1f3f0!important;
+    border-bottom-color:#cfd5d2!important;
+  }
+}
