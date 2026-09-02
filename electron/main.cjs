@@ -78,6 +78,10 @@ function openStorage(root){
     CREATE INDEX IF NOT EXISTS idx_deeds_city ON deeds(city);
     CREATE INDEX IF NOT EXISTS idx_deeds_held ON deeds(held_by);
   `);
+  const attachmentColumns=db.prepare('PRAGMA table_info(attachments)').all();
+  if(!attachmentColumns.some(column=>column.name==='notes')){
+    db.exec("ALTER TABLE attachments ADD COLUMN notes TEXT NOT NULL DEFAULT ''");
+  }
   repairAttachmentPaths();
 }
 function ensureStorage(){ openStorage(readConfiguredStorageRoot()); }
@@ -350,6 +354,10 @@ app.whenReady().then(()=>{
   ipcMain.handle('attachments:preview',(_,id)=>{const a=row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});return a&&a.mime_group==='image'?attachmentData(a):''});
   ipcMain.handle('attachments:data',(_,id)=>{const a=row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});return a?attachmentData(a):''});
   ipcMain.handle('attachments:open',(_,id)=>{const a=row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});return a?shell.openPath(a.stored_path):''});
+  ipcMain.handle('attachments:update-notes',(_,id,notes)=>{
+    db.prepare('UPDATE attachments SET notes=$notes WHERE id=$id').run({$id:Number(id),$notes:String(notes||'').trim()});
+    return row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});
+  });
   ipcMain.handle('attachments:delete',(_,id)=>{const a=row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});if(a){try{if(fs.existsSync(a.stored_path))fs.unlinkSync(a.stored_path)}catch{}db.prepare('DELETE FROM attachments WHERE id=$id').run({$id:Number(id)})}return true});
   ipcMain.handle('deeds:filter-options',()=>filterOptions());
   ipcMain.handle('storage:get-info',()=>getStorageInfo());
@@ -361,7 +369,8 @@ app.whenReady().then(()=>{
     event.sender.print({silent:false,printBackground:true,landscape:true,pageSize:'A4'},(success,failureReason)=>resolve({success,failureReason:failureReason||''}));
   }));
   ipcMain.handle('print:landscape-pdf',async(event,suggestedName='DeedArchive-report.pdf')=>{
-    const pdf=await event.sender.printToPDF({printBackground:true,landscape:true,pageSize:'A4',preferCSSPageSize:false});
+    const footerTemplate=`<div style="width:100%;display:flex;justify-content:center;align-items:center;font-family:Arial,sans-serif;font-size:9px;color:#526575;"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:64px;height:22px;padding:0 10px;border:1px solid #b9c7c2;border-radius:7px;background:#f7f8f5;font-weight:700;direction:rtl;box-sizing:border-box;">[&nbsp;<span class="pageNumber"></span>&nbsp;من&nbsp;<span class="totalPages"></span>&nbsp;]</span></div>`;
+    const pdf=await event.sender.printToPDF({printBackground:true,landscape:true,pageSize:'A4',preferCSSPageSize:false,displayHeaderFooter:true,headerTemplate:'<span></span>',footerTemplate,margins:{marginType:'custom',top:0.2,bottom:0.45,left:0.2,right:0.2}});
     const safeName=String(suggestedName||'DeedArchive-report.pdf').replace(/[\\/:*?"<>|]/g,'-');
     const result=await dialog.showSaveDialog(mainWindow,{title:'حفظ التقرير PDF',defaultPath:path.join(app.getPath('documents'),safeName.endsWith('.pdf')?safeName:`${safeName}.pdf`),filters:[{name:'PDF',extensions:['pdf']}]});
     if(result.canceled||!result.filePath)return{canceled:true};
