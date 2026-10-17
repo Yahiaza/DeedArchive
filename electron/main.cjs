@@ -190,7 +190,9 @@ function attachmentData(a){
   const mime=a.mime_group==='pdf'?'application/pdf':ext==='jpg'||ext==='jpeg'?'image/jpeg':ext==='webp'?'image/webp':ext==='gif'?'image/gif':ext==='bmp'?'image/bmp':'image/png';
   return `data:${mime};base64,${fs.readFileSync(a.stored_path).toString('base64')}`;
 }
-function filterOptions(){const pick=col=>rows(`SELECT DISTINCT ${col} AS value FROM deeds WHERE TRIM(${col})<>'' ORDER BY ${col}`).map(x=>x.value);return{cities:pick('city'),districts:pick('district'),propertyTypes:pick('property_type'),heldBy:pick('held_by'),owners:pick('owner_name')}}
+function optionValues(column){return rows(`SELECT DISTINCT ${column} AS value FROM deeds WHERE TRIM(${column})<>'' ORDER BY ${column}`).map(x=>x.value)}
+function filterOptions(){return{cities:optionValues('city'),districts:optionValues('district'),propertyTypes:optionValues('property_type'),heldBy:optionValues('held_by'),owners:optionValues('owner_name')}}
+function deedFormOptions(){return{document_number:optionValues('document_number'),document_date:optionValues('document_date'),owner_name:optionValues('owner_name'),property_type:optionValues('property_type'),property_area:optionValues('property_area'),plot_number:optionValues('plot_number'),plan_number:optionValues('plan_number'),district:optionValues('district'),city:optionValues('city'),held_by:optionValues('held_by')}}
 
 
 function reportSettingsPath(){return path.join(storageRoot,'report-settings.json')}
@@ -360,6 +362,7 @@ app.whenReady().then(()=>{
   });
   ipcMain.handle('attachments:delete',(_,id)=>{const a=row('SELECT * FROM attachments WHERE id=$id',{$id:Number(id)});if(a){try{if(fs.existsSync(a.stored_path))fs.unlinkSync(a.stored_path)}catch{}db.prepare('DELETE FROM attachments WHERE id=$id').run({$id:Number(id)})}return true});
   ipcMain.handle('deeds:filter-options',()=>filterOptions());
+  ipcMain.handle('deeds:form-options',()=>deedFormOptions());
   ipcMain.handle('storage:get-info',()=>getStorageInfo());
   ipcMain.handle('storage:choose-location',()=>chooseStorageLocation());
   ipcMain.handle('storage:open-folder',()=>shell.openPath(storageRoot));
